@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Streamline</title>
+<script src="streamline.js"></script>
+<script src="dat.gui.min.js"></script>
+<style>
+body {
+	margin: 0;
+}
+canvas {
+	display: block;
+}
+</style>
+
+<script>
+var vortex = new StreamField();
+var wasPaused = vortex.paused;
+var mousex, mousey;
+
+var field = new VectorField({
+	Fx: function (x, y) { return x; },
+	Fy: function (x, y) { return -y; },
+	strength: 1
+});
+var field2 = new VectorField({
+	Fx: function (x, y) { return y; },
+	Fy: function (x, y) { return x; },
+	strength: 1
+});
+var ccw = new VectorField({
+	Fx: function (x, y) { return -y; },
+	Fy: function (x, y) { return x; },
+	strength: 1
+});
+var ccw2 = new VectorField({
+	Fx: function (x, y) { return -y / Math.hypot(x, y); },
+	Fy: function (x, y) { return x / Math.hypot(x, y); },
+	strength: 1
+});
+var ccw3 = new VectorField({
+	Fx: function (x, y) { return -y / Math.hypot(x, y) / Math.exp((x*x + y*y) * 2); },
+	Fy: function (x, y) { return x / Math.hypot(x, y) / Math.exp((x*x + y*y) * 2); },
+	strength: 1
+});
+var suck = new VectorField({
+	Fx: function (x, y) { return -x / Math.hypot(x, y); },
+	Fy: function (x, y) { return -y / Math.hypot(x, y); },
+	strength: 1
+});
+var suck2 = new VectorField({
+	Fx: function (x, y) { return -x; },
+	Fy: function (x, y) { return -y; },
+	strength: 1
+});
+var flowField = new VectorField({
+	Fx: function (x, y) { return 1; }
+});
+var wave = new VectorField({
+	Fy: function (x, y) { return Math.sin(Math.PI*x); },
+	strength: 0.2
+});
+var repel = new VectorField({
+	Fx: function (x, y) { return x / Math.hypot(x, y) / Math.exp((x*x + y*y) * 8); },
+	Fy: function (x, y) { return y / Math.hypot(x, y) / Math.exp((x*x + y*y) * 8); },
+	strength: 1
+});
+
+// vortex.addField(ccw3);
+vortex.addField(flowField);
+vortex.addField(wave);
+// vortex.addField(repel);
+
+window.addEventListener("load", function (e) {
+	vortex.canvas.width = window.innerWidth;
+	vortex.canvas.height = window.innerHeight;
+	document.body.appendChild(vortex.canvas);
+	vortex.setViewbox(0, 0, window.innerWidth, window.innerHeight);
+	vortex.reset();
+	// vortex.fieldLines = true;
+	vortex.fieldSize = 40;
+	vortex.lineWidth = 4;
+	vortex.setMotionBlur(0.8);
+	vortex.wrap = true;
+	vortex.streamCount = 1000;
+	// vortex.speed = 0.33;
+	// vortex.log_speed = Math.log(0.33) / Math.LN10;
+	vortex.setSpeed(-0.5);
+	// vortex.canvas.addEventListener("click", vortex.toggleState.bind(vortex));
+	vortex.toggleState();
+
+	var field;
+	for (var i = 0; i < 10; i++) {
+		field = ccw3.clone();
+		field.x = vortex.getXCoordinate(Math.random() * vortex.canvas.width);
+		field.y = vortex.getYCoordinate(Math.random() * vortex.canvas.height);
+		field.strength = Math.random() < 0.5 ? -1 : 1;
+		vortex.addField(field);
+	}
+
+	vortex.canvas.addEventListener("mousemove", function (e) {
+		mousex = e.clientX;
+		mousey = e.clientY;
+		repel.x = vortex.getXCoordinate(mousex);
+		repel.y = vortex.getYCoordinate(mousey);
+	});
+
+	var gui = new dat.GUI();
+	var style = gui.addFolder("Style");
+	style.addColor(vortex, "background");
+	style.addColor(vortex, "foreground");
+	style.add(vortex, "motionBlur", 0, 1).step(0.01).onChange(vortex.setMotionBlur);
+	style.add(vortex, "transparent");
+	style.add(vortex, "lineWidth", 0, 10).step(0.1);
+	// style.open();
+
+	var field = gui.addFolder("Field Options");
+	field.add(vortex, "fieldGradient");
+	field.add(vortex, "fieldLines");
+	field.add(vortex, "fieldSize", 0, 100).step(2);
+	field.add(vortex, "fieldScale", 0, 1).step(0.1);
+	// field.open();
+
+	// var flow = gui.addFolder("Flow Options");
+	// flow.add(flowField, "strength", -5, 5).step(0.5);
+	// flow.add(wave, "strength", -5, 5).step(0.5);
+	// flow.add(repel, "strength", -5, 5).step(0.5);
+	// flow.open();
+
+	gui.add(vortex, "zoom", 0, 1000).step(10).onChange(vortex.setZoom);
+	gui.add(vortex, "log_speed", -1, 1).step(0.01).onChange(vortex.setSpeed);
+	gui.add(vortex, "lifeSpan", 0, 10).step(1);
+	gui.add(vortex, "streamCount", 0, 1000).step(10);
+	gui.add(vortex, "wrap");
+	gui.add(vortex, "paused").listen();
+	gui.add(vortex, "reset");
+	gui.add(vortex, "clear");
+});
+
+window.addEventListener("focus", function (e) {
+	vortex.paused = wasPaused;
+});
+
+window.addEventListener("blur", function (e) {
+	wasPaused = vortex.paused;
+	vortex.paused = true;
+});
+
+</script>
+</head>
+<body></body>
+</html>
