@@ -203,14 +203,17 @@ function Streamline(x, y) {
 	this.ay = 0;
 }
 
-Streamline.prototype.applyFields = function (field) {
-	if (field instanceof VectorField) {
-		this.vx += field.strength * field.getvx(this.x, this.y);
-		this.vy += field.strength * field.getvy(this.x, this.y);
+Streamline.prototype.applyFields = function (fields) {
+	if (fields instanceof VectorField) {
+		this.vx += fields.strength * fields.getvx(this.x, this.y);
+		this.vy += fields.strength * fields.getvy(this.x, this.y);
 	} else {
-		for (var f = field.length - 1; f >= 0; f--) {
-			this.vx += field[f].strength * field[f].getvx(this.x, this.y);
-			this.vy += field[f].strength * field[f].getvy(this.x, this.y);
+		for (var f = fields.length - 1; f >= 0; f--) {
+			var field = fields[f];
+			if (field.enabled) {
+				this.vx += field.strength * field.getvx(this.x, this.y);
+				this.vy += field.strength * field.getvy(this.x, this.y);
+			}
 		}
 	}
 };
@@ -261,11 +264,13 @@ function VectorField(properties) {
 		this.Fy = properties.hasOwnProperty("Fy") ? properties.Fy : this.Fy;
 		this.x = properties.hasOwnProperty("x") ? properties.x : this.x;
 		this.y = properties.hasOwnProperty("y") ? properties.y : this.y;
+		this.enabled = properties.hasOwnProperty("enabled") ? properties.enabled : this.enabled;
 	}
 }
 
 VectorField.prototype = {
 	x: 0, y: 0,
+	enabled: true,
 	strength: 1,
 	Fx: function (x, y) { return 0; },
 	Fy: function (x, y) { return 0; },
@@ -294,8 +299,10 @@ StreamField.prototype.getv = function (x, y) {
 
 	for (var f = this.fields.length - 1; f >= 0; f--) {
 		field = this.fields[f];
-		v.x += field.strength * field.getvx(x, y);
-		v.y += field.strength * field.getvy(x, y);
+		if (field.enabled) {
+			v.x += field.strength * field.getvx(x, y);
+			v.y += field.strength * field.getvy(x, y);
+		}
 	}
 
 	return v;
