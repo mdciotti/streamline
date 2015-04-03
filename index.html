@@ -5,19 +5,25 @@
 <title>Streamline</title>
 <script src="streamline.js"></script>
 <script src="dat.gui.min.js"></script>
-<style>
-body {
-	margin: 0;
-}
-canvas {
-	display: block;
-}
-</style>
-
+<link href='http://fonts.googleapis.com/css?family=Sacramento|Fira+Sans:300,300i,500,500i' rel='stylesheet' type='text/css'>
+<link href="http://mdc.io/css/experiment.css" rel="stylesheet" type="text/css">
+<link href="http://mdc.io/css/dat.gui.mod.css" rel="stylesheet" type="text/css">
 <script>
 var vortex = new StreamField();
 var wasPaused = vortex.paused;
-var mousex, mousey;
+var zoomFactor = 0.8;
+var mouse = {
+	x: 0,
+	y: 0,
+	lastx: 0,
+	lasty: 0,
+	dx: 0,
+	dy: 0,
+	down: false
+};
+var key = {
+	ctrl: false
+};
 
 var field = new VectorField({
 	Fx: function (x, y) { return x; },
@@ -64,12 +70,13 @@ var wave = new VectorField({
 var repel = new VectorField({
 	Fx: function (x, y) { return x / Math.hypot(x, y) / Math.exp((x*x + y*y) * 8); },
 	Fy: function (x, y) { return y / Math.hypot(x, y) / Math.exp((x*x + y*y) * 8); },
-	strength: 1
+	strength: 2,
+	enabled: false
 });
 
 // vortex.addField(ccw3);
-vortex.addField(flowField);
-vortex.addField(wave);
+// vortex.addField(flowField);
+// vortex.addField(wave);
 // vortex.addField(repel);
 
 window.addEventListener("load", function (e) {
@@ -77,42 +84,60 @@ window.addEventListener("load", function (e) {
 	vortex.canvas.height = window.innerHeight;
 	document.body.appendChild(vortex.canvas);
 	vortex.setViewbox(0, 0, window.innerWidth, window.innerHeight);
-	vortex.reset();
 	// vortex.fieldLines = true;
 	vortex.fieldSize = 40;
-	vortex.lineWidth = 4;
+	vortex.lineWidth = 1.5;
 	vortex.setMotionBlur(0.8);
 	vortex.wrap = true;
 	vortex.streamCount = 1000;
-	// vortex.speed = 0.33;
-	// vortex.log_speed = Math.log(0.33) / Math.LN10;
+	vortex.background = "#FF6060";
+	vortex.foreground = "#FFFFFF";
 	vortex.setSpeed(-0.5);
-	// vortex.canvas.addEventListener("click", vortex.toggleState.bind(vortex));
 	vortex.toggleState();
 
-	var field;
-	for (var i = 0; i < 10; i++) {
-		field = ccw3.clone();
-		field.x = vortex.getXCoordinate(Math.random() * vortex.canvas.width);
-		field.y = vortex.getYCoordinate(Math.random() * vortex.canvas.height);
-		field.strength = Math.random() < 0.5 ? -1 : 1;
-		vortex.addField(field);
-	}
+	vortex.init = function () {
+		var field;
+		for (var i = 0; i < 10; i++) {
+			field = ccw3.clone();
+			field.x = vortex.getXCoordinate(Math.random() * vortex.canvas.width);
+			field.y = vortex.getYCoordinate(Math.random() * vortex.canvas.height);
+			field.strength = Math.random() < 0.5 ? -1 : 1;
+			vortex.addField(field);
+		}
+		vortex.addField(repel);
+	};
+
+	vortex.reset();
+
+	vortex.canvas.addEventListener("mousedown", function (e) {
+		mouse.down = true;
+	});
+
+	vortex.canvas.addEventListener("mouseup", function (e) {
+		mouse.down = false;
+	});
 
 	vortex.canvas.addEventListener("mousemove", function (e) {
-		mousex = e.clientX;
-		mousey = e.clientY;
-		repel.x = vortex.getXCoordinate(mousex);
-		repel.y = vortex.getYCoordinate(mousey);
+		mouse.lastx = mouse.x;
+		mouse.lasty = mouse.y;
+		mouse.x = e.clientX;
+		mouse.y = e.clientY;
+		mouse.dx = mouse.x - mouse.lastx;
+		mouse.dy = mouse.y - mouse.lasty;
+		if (mouse.down) {
+			vortex.translate(mouse.dx, mouse.dy);
+		}
+		repel.x = vortex.getXCoordinate(mouse.x);
+		repel.y = vortex.getYCoordinate(mouse.y);
 	});
 
 	var gui = new dat.GUI();
 	var style = gui.addFolder("Style");
 	style.addColor(vortex, "background");
 	style.addColor(vortex, "foreground");
-	style.add(vortex, "motionBlur", 0, 1).step(0.01).onChange(vortex.setMotionBlur);
-	style.add(vortex, "transparent");
+	style.add(vortex, "motionBlur", 0, 1).step(0.01).onChange(vortex.setMotionBlur.bind(vortex));
 	style.add(vortex, "lineWidth", 0, 10).step(0.1);
+	style.add(vortex, "transparent");
 	// style.open();
 
 	var field = gui.addFolder("Field Options");
@@ -128,14 +153,13 @@ window.addEventListener("load", function (e) {
 	// flow.add(repel, "strength", -5, 5).step(0.5);
 	// flow.open();
 
-	gui.add(vortex, "zoom", 0, 1000).step(10).onChange(vortex.setZoom);
-	gui.add(vortex, "log_speed", -1, 1).step(0.01).onChange(vortex.setSpeed);
+	gui.add(vortex, "zoom", 0, 1000).step(10).listen().onChange(vortex.setZoom.bind(vortex));
+	gui.add(vortex, "log_speed", -1, 1).step(0.01).onChange(vortex.setSpeed.bind(vortex));
 	gui.add(vortex, "lifeSpan", 0, 10).step(1);
 	gui.add(vortex, "streamCount", 0, 1000).step(10);
 	gui.add(vortex, "wrap");
 	gui.add(vortex, "paused").listen();
 	gui.add(vortex, "reset");
-	gui.add(vortex, "clear");
 });
 
 window.addEventListener("focus", function (e) {
@@ -147,7 +171,44 @@ window.addEventListener("blur", function (e) {
 	vortex.paused = true;
 });
 
+window.addEventListener("mousewheel", function (e) {
+	if (e.wheelDeltaY < 0) {
+		vortex.zoom *= zoomFactor;
+	} else {
+		vortex.zoom /= zoomFactor;
+	}
+	vortex.setViewbox(0, 0, window.innerWidth, window.innerHeight);
+});
+
+window.addEventListener("keydown", function (e) {
+	if (e.which === "H".charCodeAt(0)) {
+		document.querySelector(".info").classList.toggle("hidden");
+	} else if (e.ctrlKey || e.which === 17) {
+		key.ctrl = true;
+		repel.enabled = true;
+	}
+});
+
+window.addEventListener("keyup", function (e) {
+	if (e.ctrlKey || e.which === 17) {
+		key.ctrl = false;
+		repel.enabled = false;
+	}
+});
+
 </script>
 </head>
-<body></body>
+<body>
+<div class="info">
+	<h1>Streamline</h1>
+	<p class="subtitle">An experiment by Maxwell Ciotti</p>
+	<p>Streamline is a <a href="https://en.wikipedia.org/wiki/Vector_field">vector field</a> simulator. I was inspired by <a href="http://earth.nullschool.net/">this earth windmap</a> and by <a href="https://vimeo.com/36466564">this Starry Night interactive animation</a>.</p>
+	<p><strong>Click and drag to pan</strong>, <em>scroll to zoom</em>.</p>
+	<p>Hold <kbd>Ctrl</kbd> to repel streams with the mouse pointer.</p>
+	<p>Press <kbd>H</kbd> to hide this information and the controls at the top right.</p>
+	<hr>
+	<p><strong>Like this experiment?</strong><br>
+	Let me know! I'm <a href="https://twitter.com/mdciotti">@mdciotti</a> on twitter; or visit <a href="http://mdc.io">my website</a> for more awesomeness.</p>
+</div>
+</body>
 </html>

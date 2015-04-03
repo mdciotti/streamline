@@ -27,11 +27,12 @@ function StreamField() {
 		bottom: -0.5,
 		left: 0.5,
 		width: 1,
-		height: 1
+		height: 1,
+		origin: { x: 0, y: 0 }
 	};
 
 	// Configurable options
-	this.background = "#333333";
+	this.background = "#000000";
 	this.foreground = "#CCCCCC";
 	this.motionBlur = 0.0;
 	this.opacity = 1.0;
@@ -69,16 +70,34 @@ StreamField.prototype.setMotionBlur = function (blur) {
 };
 
 StreamField.prototype.setZoom = function (z) {
-	this.setViewbox()
+	this.zoom = z;
+	// this.setViewbox(null, null, this.canvas.width, this.canvas.height);
+	this.viewbox.width = this.canvas.width / this.zoom;
+	this.viewbox.height = this.canvas.height / this.zoom;
 };
 
 StreamField.prototype.setViewbox = function (originX, originY, width, height) {
-	this.viewbox.height = height / this.zoom;
-	this.viewbox.width = width / this.zoom;
-	this.viewbox.bottom = originY / this.zoom - this.viewbox.height / 2;
-	this.viewbox.left = originX / this.zoom - this.viewbox.width / 2;
-	this.viewbox.top = this.viewbox.bottom + this.viewbox.height;
+	this.viewbox.width = typeof width === "number" ? width / this.zoom : this.viewbox.width;
+	this.viewbox.height = typeof height === "number" ? height / this.zoom : this.viewbox.height;
+	this.viewbox.origin.x = typeof originX === "number" ? originX / this.zoom : this.viewbox.origin.x;
+	this.viewbox.origin.y = typeof originY === "number" ? originY / this.zoom : this.viewbox.origin.y;
+	this.viewbox.left = this.viewbox.origin.x - this.viewbox.width / 2;
+	this.viewbox.bottom = this.viewbox.origin.y - this.viewbox.height / 2;
 	this.viewbox.right = this.viewbox.left + this.viewbox.width;
+	this.viewbox.top = this.viewbox.bottom + this.viewbox.height;
+};
+
+StreamField.prototype.translate = function (dx, dy) {
+	// this.setViewbox(this.viewbox.origin.x * this.zoom + dx, this.viewbox.origin.y * this.zoom - dy);
+	dx /= this.zoom;
+	dy /= this.zoom;
+
+	this.viewbox.origin.x += dx;
+	this.viewbox.origin.y -= dy;
+	this.viewbox.left -= dx;
+	this.viewbox.bottom += dy;
+	this.viewbox.right -= dx;
+	this.viewbox.top += dy;
 };
 
 StreamField.prototype.addStream = function (stream) {
@@ -97,16 +116,35 @@ StreamField.prototype.addField = function (field) {
 	// }
 };
 
-StreamField.prototype.clear = function () {
-	this.streamlines = [];
+StreamField.prototype.resetViewbox = function () {
+	var w = this.canvas.width = window.innerWidth;
+	var h = this.canvas.height = window.innerHeight;
+	this.zoom = 300;
+	vortex.setViewbox(0, 0, w, h);
 };
 
+StreamField.prototype.init = function () {};
+
 StreamField.prototype.reset = function (init) {
-	this.clear();
-	this.ctx.fillStyle = this.background;
-	this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+	this.streamlines = [];
+	this.fields = [];
+
+	this.resetViewbox();
+
+	if (!this.transparent) {
+		this.ctx.globalAlpha = 1;
+		this.ctx.fillStyle = this.background;
+		this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+		this.ctx.globalAlpha = this.opacity;
+		this.ctx.fillStyle = this.foreground;
+		this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+	}
+
 	if (typeof init === "function") {
 		init.call(this);
+	} else {
+		this.init();
 	}
 };
 
@@ -165,14 +203,17 @@ function Streamline(x, y) {
 	this.ay = 0;
 }
 
-Streamline.prototype.applyFields = function (field) {
-	if (field instanceof VectorField) {
-		this.vx += field.strength * field.getvx(this.x, this.y);
-		this.vy += field.strength * field.getvy(this.x, this.y);
+Streamline.prototype.applyFields = function (fields) {
+	if (fields instanceof VectorField) {
+		this.vx += fields.strength * fields.getvx(this.x, this.y);
+		this.vy += fields.strength * fields.getvy(this.x, this.y);
 	} else {
-		for (var f = field.length - 1; f >= 0; f--) {
-			this.vx += field[f].strength * field[f].getvx(this.x, this.y);
-			this.vy += field[f].strength * field[f].getvy(this.x, this.y);
+		for (var f = fields.length - 1; f >= 0; f--) {
+			var field = fields[f];
+			if (field.enabled) {
+				this.vx += field.strength * field.getvx(this.x, this.y);
+				this.vy += field.strength * field.getvy(this.x, this.y);
+			}
 		}
 	}
 };
@@ -223,11 +264,13 @@ function VectorField(properties) {
 		this.Fy = properties.hasOwnProperty("Fy") ? properties.Fy : this.Fy;
 		this.x = properties.hasOwnProperty("x") ? properties.x : this.x;
 		this.y = properties.hasOwnProperty("y") ? properties.y : this.y;
+		this.enabled = properties.hasOwnProperty("enabled") ? properties.enabled : this.enabled;
 	}
 }
 
 VectorField.prototype = {
 	x: 0, y: 0,
+	enabled: true,
 	strength: 1,
 	Fx: function (x, y) { return 0; },
 	Fy: function (x, y) { return 0; },
@@ -256,8 +299,10 @@ StreamField.prototype.getv = function (x, y) {
 
 	for (var f = this.fields.length - 1; f >= 0; f--) {
 		field = this.fields[f];
-		v.x += field.strength * field.getvx(x, y);
-		v.y += field.strength * field.getvy(x, y);
+		if (field.enabled) {
+			v.x += field.strength * field.getvx(x, y);
+			v.y += field.strength * field.getvy(x, y);
+		}
 	}
 
 	return v;
@@ -283,6 +328,7 @@ StreamField.prototype.draw = function (dt) {
 	this.ctx.translate(w / 2, h / 2);
 	this.ctx.scale(1, -1);
 	this.ctx.scale(this.zoom, this.zoom);
+	this.ctx.translate(this.viewbox.origin.x, this.viewbox.origin.y);
 	
 	// Draw field gradient
 	if (this.fieldGradient) {
@@ -359,14 +405,15 @@ StreamField.prototype.draw = function (dt) {
 	for (i = this.streamlines.length - 1; i >= 0; i--) {
 		// this.streamlines[i].draw(this.ctx);
 		stream = this.streamlines[i];
+		stream.scale = dt;
 		// this.ctx.fillRect(stream.x, stream.y, radius, radius);
 		this.ctx.moveTo(
 			stream.x,
 			stream.y
 		);
 		this.ctx.lineTo(
-			(stream.x + stream.vx / stream.scale),
-			(stream.y + stream.vy / stream.scale)
+			(stream.x + stream.vx * stream.scale),
+			(stream.y + stream.vy * stream.scale)
 		);
 	}
 	this.ctx.stroke();
@@ -392,8 +439,8 @@ StreamField.prototype.animate = function (now) {
 
 	// Add a stream until there are this.streamCount streams	
 	while (this.streamlines.length < this.streamCount) {
-		var x = (Math.random() - 0.5) * this.canvas.width / this.zoom;
-		var y = (Math.random() - 0.5) * this.canvas.height / this.zoom;
+		var x = Math.random() * this.viewbox.width + this.viewbox.left;
+		var y = Math.random() * this.viewbox.height + this.viewbox.bottom;
 		this.streamlines.push(new Streamline(x, y));
 	}
 	
