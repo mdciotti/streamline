@@ -27,11 +27,12 @@ function StreamField() {
 		bottom: -0.5,
 		left: 0.5,
 		width: 1,
-		height: 1
+		height: 1,
+		origin: { x: 0, y: 0 }
 	};
 
 	// Configurable options
-	this.background = "#333333";
+	this.background = "#000000";
 	this.foreground = "#CCCCCC";
 	this.motionBlur = 0.0;
 	this.opacity = 1.0;
@@ -69,16 +70,34 @@ StreamField.prototype.setMotionBlur = function (blur) {
 };
 
 StreamField.prototype.setZoom = function (z) {
-	this.setViewbox()
+	this.zoom = z;
+	// this.setViewbox(null, null, this.canvas.width, this.canvas.height);
+	this.viewbox.width = this.canvas.width / this.zoom;
+	this.viewbox.height = this.canvas.height / this.zoom;
 };
 
 StreamField.prototype.setViewbox = function (originX, originY, width, height) {
-	this.viewbox.height = height / this.zoom;
-	this.viewbox.width = width / this.zoom;
-	this.viewbox.bottom = originY / this.zoom - this.viewbox.height / 2;
-	this.viewbox.left = originX / this.zoom - this.viewbox.width / 2;
-	this.viewbox.top = this.viewbox.bottom + this.viewbox.height;
+	this.viewbox.width = typeof width === "number" ? width / this.zoom : this.viewbox.width;
+	this.viewbox.height = typeof height === "number" ? height / this.zoom : this.viewbox.height;
+	this.viewbox.origin.x = typeof originX === "number" ? originX / this.zoom : this.viewbox.origin.x;
+	this.viewbox.origin.y = typeof originY === "number" ? originY / this.zoom : this.viewbox.origin.y;
+	this.viewbox.left = this.viewbox.origin.x - this.viewbox.width / 2;
+	this.viewbox.bottom = this.viewbox.origin.y - this.viewbox.height / 2;
 	this.viewbox.right = this.viewbox.left + this.viewbox.width;
+	this.viewbox.top = this.viewbox.bottom + this.viewbox.height;
+};
+
+StreamField.prototype.translate = function (dx, dy) {
+	// this.setViewbox(this.viewbox.origin.x * this.zoom + dx, this.viewbox.origin.y * this.zoom - dy);
+	dx /= this.zoom;
+	dy /= this.zoom;
+
+	this.viewbox.origin.x += dx;
+	this.viewbox.origin.y -= dy;
+	this.viewbox.left -= dx;
+	this.viewbox.bottom += dy;
+	this.viewbox.right -= dx;
+	this.viewbox.top += dy;
 };
 
 StreamField.prototype.addStream = function (stream) {
@@ -97,14 +116,26 @@ StreamField.prototype.addField = function (field) {
 	// }
 };
 
-StreamField.prototype.clear = function () {
-	this.streamlines = [];
+StreamField.prototype.resetViewbox = function () {
+	this.zoom = 300;
+	vortex.setViewbox(0, 0, window.innerWidth, window.innerHeight);
 };
 
 StreamField.prototype.reset = function (init) {
-	this.clear();
-	this.ctx.fillStyle = this.background;
-	this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+	this.streamlines = [];
+
+	this.resetViewbox();
+
+	if (!this.transparent) {
+		// this.ctx.globalAlpha = 1;
+		// this.ctx.fillStyle = this.background;
+		// this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+		this.ctx.globalAlpha = this.opacity;
+		this.ctx.fillStyle = this.foreground;
+		this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+	}
+
 	if (typeof init === "function") {
 		init.call(this);
 	}
@@ -283,6 +314,7 @@ StreamField.prototype.draw = function (dt) {
 	this.ctx.translate(w / 2, h / 2);
 	this.ctx.scale(1, -1);
 	this.ctx.scale(this.zoom, this.zoom);
+	this.ctx.translate(this.viewbox.origin.x, this.viewbox.origin.y);
 	
 	// Draw field gradient
 	if (this.fieldGradient) {
@@ -359,14 +391,15 @@ StreamField.prototype.draw = function (dt) {
 	for (i = this.streamlines.length - 1; i >= 0; i--) {
 		// this.streamlines[i].draw(this.ctx);
 		stream = this.streamlines[i];
+		stream.scale = dt;
 		// this.ctx.fillRect(stream.x, stream.y, radius, radius);
 		this.ctx.moveTo(
 			stream.x,
 			stream.y
 		);
 		this.ctx.lineTo(
-			(stream.x + stream.vx / stream.scale),
-			(stream.y + stream.vy / stream.scale)
+			(stream.x + stream.vx * stream.scale),
+			(stream.y + stream.vy * stream.scale)
 		);
 	}
 	this.ctx.stroke();
@@ -392,8 +425,8 @@ StreamField.prototype.animate = function (now) {
 
 	// Add a stream until there are this.streamCount streams	
 	while (this.streamlines.length < this.streamCount) {
-		var x = (Math.random() - 0.5) * this.canvas.width / this.zoom;
-		var y = (Math.random() - 0.5) * this.canvas.height / this.zoom;
+		var x = Math.random() * this.viewbox.width + this.viewbox.left;
+		var y = Math.random() * this.viewbox.height + this.viewbox.bottom;
 		this.streamlines.push(new Streamline(x, y));
 	}
 	

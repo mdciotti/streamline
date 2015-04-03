@@ -17,7 +17,15 @@ canvas {
 <script>
 var vortex = new StreamField();
 var wasPaused = vortex.paused;
-var mousex, mousey;
+var mouse = {
+	x: 0,
+	y: 0,
+	lastx: 0,
+	lasty: 0,
+	dx: 0,
+	dy: 0,
+	down: false
+};
 
 var field = new VectorField({
 	Fx: function (x, y) { return x; },
@@ -68,7 +76,7 @@ var repel = new VectorField({
 });
 
 // vortex.addField(ccw3);
-vortex.addField(flowField);
+// vortex.addField(flowField);
 vortex.addField(wave);
 // vortex.addField(repel);
 
@@ -80,7 +88,7 @@ window.addEventListener("load", function (e) {
 	vortex.reset();
 	// vortex.fieldLines = true;
 	vortex.fieldSize = 40;
-	vortex.lineWidth = 4;
+	vortex.lineWidth = 1.5;
 	vortex.setMotionBlur(0.8);
 	vortex.wrap = true;
 	vortex.streamCount = 1000;
@@ -99,18 +107,35 @@ window.addEventListener("load", function (e) {
 		vortex.addField(field);
 	}
 
+	vortex.canvas.addEventListener("mousedown", function (e) {
+		mouse.down = true;
+		// vortex.paused = true;
+	});
+
+	vortex.canvas.addEventListener("mouseup", function (e) {
+		mouse.down = false;
+		// vortex.paused = false;
+	});
+
 	vortex.canvas.addEventListener("mousemove", function (e) {
-		mousex = e.clientX;
-		mousey = e.clientY;
-		repel.x = vortex.getXCoordinate(mousex);
-		repel.y = vortex.getYCoordinate(mousey);
+		mouse.lastx = mouse.x;
+		mouse.lasty = mouse.y;
+		mouse.x = e.clientX;
+		mouse.y = e.clientY;
+		mouse.dx = mouse.x - mouse.lastx;
+		mouse.dy = mouse.y - mouse.lasty;
+		if (mouse.down) {
+			vortex.translate(mouse.dx, mouse.dy);
+		}
+		// repel.x = vortex.getXCoordinate(mouse.x);
+		// repel.y = vortex.getYCoordinate(mouse.y);
 	});
 
 	var gui = new dat.GUI();
 	var style = gui.addFolder("Style");
 	style.addColor(vortex, "background");
 	style.addColor(vortex, "foreground");
-	style.add(vortex, "motionBlur", 0, 1).step(0.01).onChange(vortex.setMotionBlur);
+	style.add(vortex, "motionBlur", 0, 1).step(0.01).onChange(vortex.setMotionBlur.bind(vortex));
 	style.add(vortex, "transparent");
 	style.add(vortex, "lineWidth", 0, 10).step(0.1);
 	// style.open();
@@ -128,14 +153,13 @@ window.addEventListener("load", function (e) {
 	// flow.add(repel, "strength", -5, 5).step(0.5);
 	// flow.open();
 
-	gui.add(vortex, "zoom", 0, 1000).step(10).onChange(vortex.setZoom);
-	gui.add(vortex, "log_speed", -1, 1).step(0.01).onChange(vortex.setSpeed);
+	gui.add(vortex, "zoom", 0, 1000).step(10).onChange(vortex.setZoom.bind(vortex));
+	gui.add(vortex, "log_speed", -1, 1).step(0.01).onChange(vortex.setSpeed.bind(vortex));
 	gui.add(vortex, "lifeSpan", 0, 10).step(1);
 	gui.add(vortex, "streamCount", 0, 1000).step(10);
 	gui.add(vortex, "wrap");
 	gui.add(vortex, "paused").listen();
 	gui.add(vortex, "reset");
-	gui.add(vortex, "clear");
 });
 
 window.addEventListener("focus", function (e) {
