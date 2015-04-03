@@ -117,19 +117,24 @@ StreamField.prototype.addField = function (field) {
 };
 
 StreamField.prototype.resetViewbox = function () {
+	var w = this.canvas.width = window.innerWidth;
+	var h = this.canvas.height = window.innerHeight;
 	this.zoom = 300;
-	vortex.setViewbox(0, 0, window.innerWidth, window.innerHeight);
+	vortex.setViewbox(0, 0, w, h);
 };
+
+StreamField.prototype.init = function () {};
 
 StreamField.prototype.reset = function (init) {
 	this.streamlines = [];
+	this.fields = [];
 
 	this.resetViewbox();
 
 	if (!this.transparent) {
-		// this.ctx.globalAlpha = 1;
-		// this.ctx.fillStyle = this.background;
-		// this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+		this.ctx.globalAlpha = 1;
+		this.ctx.fillStyle = this.background;
+		this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
 		this.ctx.globalAlpha = this.opacity;
 		this.ctx.fillStyle = this.foreground;
@@ -138,6 +143,8 @@ StreamField.prototype.reset = function (init) {
 
 	if (typeof init === "function") {
 		init.call(this);
+	} else {
+		this.init();
 	}
 };
 

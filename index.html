@@ -5,15 +5,8 @@
 <title>Streamline</title>
 <script src="streamline.js"></script>
 <script src="dat.gui.min.js"></script>
-<style>
-body {
-	margin: 0;
-}
-canvas {
-	display: block;
-}
-</style>
-
+<link href='http://fonts.googleapis.com/css?family=Sacramento|Fira+Sans:300,300i,500,500i' rel='stylesheet' type='text/css'>
+<link href="http://mdc.io/css/experiment.css" rel="stylesheet" type="text/css">
 <script>
 var vortex = new StreamField();
 var wasPaused = vortex.paused;
@@ -77,7 +70,7 @@ var repel = new VectorField({
 
 // vortex.addField(ccw3);
 // vortex.addField(flowField);
-vortex.addField(wave);
+// vortex.addField(wave);
 // vortex.addField(repel);
 
 window.addEventListener("load", function (e) {
@@ -85,7 +78,6 @@ window.addEventListener("load", function (e) {
 	vortex.canvas.height = window.innerHeight;
 	document.body.appendChild(vortex.canvas);
 	vortex.setViewbox(0, 0, window.innerWidth, window.innerHeight);
-	vortex.reset();
 	// vortex.fieldLines = true;
 	vortex.fieldSize = 40;
 	vortex.lineWidth = 1.5;
@@ -98,14 +90,18 @@ window.addEventListener("load", function (e) {
 	// vortex.canvas.addEventListener("click", vortex.toggleState.bind(vortex));
 	vortex.toggleState();
 
-	var field;
-	for (var i = 0; i < 10; i++) {
-		field = ccw3.clone();
-		field.x = vortex.getXCoordinate(Math.random() * vortex.canvas.width);
-		field.y = vortex.getYCoordinate(Math.random() * vortex.canvas.height);
-		field.strength = Math.random() < 0.5 ? -1 : 1;
-		vortex.addField(field);
-	}
+	vortex.init = function () {
+		var field;
+		for (var i = 0; i < 10; i++) {
+			field = ccw3.clone();
+			field.x = vortex.getXCoordinate(Math.random() * vortex.canvas.width);
+			field.y = vortex.getYCoordinate(Math.random() * vortex.canvas.height);
+			field.strength = Math.random() < 0.5 ? -1 : 1;
+			vortex.addField(field);
+		}
+	};
+	
+	vortex.reset();
 
 	vortex.canvas.addEventListener("mousedown", function (e) {
 		mouse.down = true;
@@ -171,7 +167,23 @@ window.addEventListener("blur", function (e) {
 	vortex.paused = true;
 });
 
+window.addEventListener("keydown", function (e) {
+	console.log(e.which);
+	if (e.which === "H".charCodeAt(0)) {
+		document.querySelector(".info").classList.toggle("hidden");
+	}
+});
+
 </script>
 </head>
-<body></body>
+<body>
+<div class="info">
+	<h1>Streamline</h1>
+	<p class="subtitle">An experiment by Maxwell Ciotti</p>
+	<p>Streamline is a <a href="https://en.wikipedia.org/wiki/Vector_field">vector field</a> simulator. I was inspired by <a href="http://earth.nullschool.net/">this earth windmap</a> and by <a href="https://vimeo.com/36466564">this Starry Night interactive animation</a>.</p>
+	<p><strong>Click and drag to pan</strong>, <em>scroll to zoom</em>.</p>
+	<p>This information and the controls at the top right can be hidden by pressing <kbd>H</kbd></p>
+	<p>Like this experiment? Holler <a href="https://twitter.com/mdciotti">@mdciotti</a> on twitter or visit <a href="http://mdc.io">my website</a> for more awesomeness.</p>
+</div>
+</body>
 </html>
