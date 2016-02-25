@@ -116,6 +116,24 @@ StreamField.prototype.addField = function (field) {
 	// }
 };
 
+StreamField.prototype.add = function (item) {
+	if (typeof item === "object") {
+		switch (item.constructor) {
+			case "VectorField":
+				this.fields.push(item);
+				break;
+			case "Streamline":
+				this.streamlines.push(item);
+				break;
+			default:
+				// TODO: Error logging
+				break;
+		}
+	} else {
+		// TODO: Error logging
+	}
+};
+
 StreamField.prototype.resetViewbox = function () {
 	var w = this.canvas.width = window.innerWidth;
 	var h = this.canvas.height = window.innerHeight;
